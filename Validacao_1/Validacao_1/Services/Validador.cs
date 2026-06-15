@@ -99,7 +99,7 @@ namespace Validacao_1.Services
         public async Task EnviarEmailCodigo(string emailDoCliente, int codigo)
         {
 
-
+            //Endereço Removido por segurança
             var mensagem = new MailMessage();
             mensagem.From = new MailAddress(remetente, "Sistema de Cadastro");
             mensagem.To.Add(new MailAddress(emailDoCliente));
