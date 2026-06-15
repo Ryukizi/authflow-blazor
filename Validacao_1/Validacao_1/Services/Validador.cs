@@ -123,7 +123,7 @@ namespace Validacao_1.Services
 
             if (senhaValida)
             {
-                return "Senha valída";
+                return "senha valída";
             }
             return "senha inválida";
         }
