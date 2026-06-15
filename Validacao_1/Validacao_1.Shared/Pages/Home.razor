@@ -73,28 +73,34 @@
     {
         var resultado = await Validador.EntradaDeDados(pessoa);
 
+        if (resultado == null || resultado.Count == 0) return;
+
         if (resultado.Count == 1)
         {
             respostaBasica = resultado[0];
             emailResposta = "";
             senhaResposta = "";
             NomeResposta = "";
+            mostrarCampoCodigo = false;
         }
         else
         {
             respostaBasica = "";
-            emailResposta = resultado[0];
-            senhaResposta = resultado[1];
-            NomeResposta = resultado[2];
+            // Garante que não vai dar erro de índice se a lista vier incompleta
+            emailResposta = resultado.Count > 0 ? resultado[0] : "";
+            senhaResposta = resultado.Count > 1 ? resultado[1] : "";
+            NomeResposta = resultado.Count > 2 ? resultado[2] : "";
 
-            // Ajustado para bater exatamente com o retorno do seu Validador.cs
-            if (emailResposta == "Email válido")
+            // Agora a comparação bate exatamente com "Senha válida"
+            if (emailResposta == "Email válido" && senhaResposta == "Senha valída" && NomeResposta == "Nome valído")
             {
                 mostrarCampoCodigo = true;
                 CodigoCorreto = new Random().Next(1000, 10000);
-                Console.WriteLine($"Código de verificação enviado para o email: {CodigoCorreto}");
+
+                // Rodando em Background para não travar a tela enquanto o e-mail envia
+                _ = Task.Run(async () => await Validador.EnviarEmailCodigo(email, CodigoCorreto));
             }
-            else if (emailResposta.Contains("já cadastrado"))
+            else
             {
                 mostrarCampoCodigo = false;
             }

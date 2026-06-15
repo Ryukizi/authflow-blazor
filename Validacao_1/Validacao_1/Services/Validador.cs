@@ -7,6 +7,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Net;
+using System.Net.Mail;
 using Validacao_1.Shared.Services;
 using static Validacao_1.Shared.Pages.Home;
 
@@ -94,13 +96,34 @@ namespace Validacao_1.Services
             }
         }
 
+        public async Task EnviarEmailCodigo(string emailDoCliente, int codigo)
+        {
+
+
+            var mensagem = new MailMessage();
+            mensagem.From = new MailAddress(remetente, "Sistema de Cadastro");
+            mensagem.To.Add(new MailAddress(emailDoCliente));
+            mensagem.Subject = "Código de Verificação";
+            mensagem.Body = $"Seu código de verificação é: {codigo}";
+            mensagem.IsBodyHtml = false;
+
+            using var smtpClient = new SmtpClient("smtp-relay.brevo.com")
+            {
+                Port = 587,
+                Credentials = new NetworkCredential("teste@smtp-brevo.com", suaSenhaDeApp),
+                EnableSsl = true,
+            };
+
+            await smtpClient.SendMailAsync(mensagem);
+        }
+
         public string Senha(Pessoa pessoa)
         {
             bool senhaValida = Regex.IsMatch(pessoa.Senha ?? string.Empty, @"^(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$");
 
             if (senhaValida)
             {
-                return HashPassword(pessoa.Senha ?? string.Empty) + "senha valída";
+                return "Senha valída";
             }
             return "senha inválida";
         }
@@ -122,6 +145,28 @@ namespace Validacao_1.Services
             string KeyBase64 = Convert.ToBase64String(key);
 
             return $"{iterations}.{saltBase64}.{KeyBase64}";
+        }
+
+        public bool VerifyPassword(string password, string storehash)
+        {
+            var parts = storehash.Split('.');
+            if (parts.Length != 3)
+            {
+                return false;
+            }
+
+            if (!int.TryParse(parts[0], out int iterations))
+            {
+                return false;
+            }
+
+            var salt = Convert.FromBase64String(parts[1]);
+            var storedKey = Convert.FromBase64String(parts[2]);
+
+            using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations, HashAlgorithmName.SHA256);
+            var enteredKey = pbkdf2.GetBytes(storedKey.Length);
+
+            return CryptographicOperations.FixedTimeEquals(enteredKey, storedKey);
         }
     }
 }

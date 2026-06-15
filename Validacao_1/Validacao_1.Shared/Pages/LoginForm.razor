@@ -1,0 +1,77 @@
+﻿@page "/login"
+@using System.ComponentModel.DataAnnotations
+@using Validacao_1.Shared.Services
+@using System.Text.RegularExpressions
+@using Supabase
+@inject IValidador Validador
+@inject Client SupabaseClient
+
+<PageTitle>Login</PageTitle>
+
+<div class="container mt-5" style="max-width: 500px;">
+    <h1>Entrar no Sistema</h1>
+
+    @if (!string.IsNullOrEmpty(mensagemResultado))
+    {
+        <div class="alert @(loginSucesso ? "alert-success" : "alert-danger") mt-3" role="alert">
+            @mensagemResultado
+        </div>
+    }
+
+    <div class="form-group mt-3">
+        <h1>Digite seu Email</h1>
+        <input type="text" class="form-control" @bind="emailInput" placeholder="Digite seu Email" />
+    </div>
+
+    <div class="form-group mt-3">
+        <h1>Digite sua Senha</h1>
+        <input type="password" class="form-control" @bind="passwordInput" placeholder="Digite sua Senha" />
+    </div>
+
+    <button class="btn btn-primary mt-4" @onclick="EfetuarLogin">Entrar</button>
+</div>
+
+@code {
+    private string emailInput = "";
+    private string passwordInput = "";
+    private string mensagemResultado = "";
+    private bool loginSucesso = false;
+
+    private async Task EfetuarLogin()
+    {
+        if(string.IsNullOrWhiteSpace(emailInput) || string.IsNullOrWhiteSpace(passwordInput))
+        {
+            mensagemResultado = "Por favor, preencha todos os campos.";
+            loginSucesso = false;
+            return;
+        }
+
+        try
+        {
+            var resposta = await SupabaseClient
+                .From<Usuario>()
+                .Where(x => x.Email == emailInput)
+                .Get();
+
+            var usuario = resposta.Models.FirstOrDefault();
+
+            if (usuario != null && Validador.VerifyPassword(passwordInput, usuario.Senha))
+            {
+                loginSucesso = true;
+                mensagemResultado = $"Bem-vindo, {usuario.Nome}!";
+            }
+            else
+            {
+                loginSucesso = false;
+                mensagemResultado = "Usuário não encontrado.";
+            }
+        }
+        catch (Exception ex)
+        {
+            loginSucesso = false;
+            mensagemResultado = $"Erro ao tentar realizar login: {ex.Message}";
+        }
+    }
+
+
+}
