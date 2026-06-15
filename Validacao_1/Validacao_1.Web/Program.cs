@@ -5,8 +5,6 @@ using Supabase;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
-
 var opcoes = new SupabaseOptions { AutoConnectRealtime = true };
 builder.Services.AddSingleton(provider => new Client(urlSupabase, chaveSupabase, opcoes));
 
