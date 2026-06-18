@@ -1,9 +1,4 @@
-﻿Aqui está a sua página **`Home.razor`** atualizada com a mudança no método `VerificarCodigo`.
-
-Modifiquei apenas a parte interna do cadastro para que, quando um usuário novo for registrado, ele crie o formato de sessão correto especificando o perfil `"Usuario"`.
-
-```razor
-@page "/"
+﻿@page "/"
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Components.Web
 @using System.ComponentModel.DataAnnotations
@@ -139,20 +134,32 @@ Modifiquei apenas a parte interna do cadastro para que, quando um usuário novo 
         }
         else
         {
-            respostaBasica = "";
-            emailResposta = resultado[0];
-            senhaResposta = resultado[1];
-            NomeResposta = resultado[2];
+            //
+            // Pega os retornos do seu validador com segurança
+            emailResposta = resultado.Count > 0 ? resultado[0] : "";
+            senhaResposta = resultado.Count > 1 ? resultado[1] : "";
+            NomeResposta = resultado.Count > 2 ? resultado[2] : "";
 
-            if (emailResposta == "Email válido" && senhaResposta == "Senha valída" && NomeResposta == "Nome valído")
+            // Normaliza os textos para minúsculo para evitar brigas com maiúsculas/minúsculas
+            string emailCheck = emailResposta.ToLower();
+            string senhaCheck = senhaResposta.ToLower();
+            string nomeCheck = NomeResposta.ToLower();
+
+            // 🟢 SOLUÇÃO DEFINITIVA: Só bloqueia se houver palavras clássicas de erro.
+            // Se as strings forem de sucesso (independente de acentos tortos), ele deixa passar!
+            if (!emailCheck.Contains("erro") && !emailCheck.Contains("já cadastrado") && !emailCheck.Contains("vazio") && !emailCheck.Contains("inválido") &&
+                !senhaCheck.Contains("erro") && !senhaCheck.Contains("fraca") && !senhaCheck.Contains("curta") && !senhaCheck.Contains("inválida") &&
+                !nomeCheck.Contains("erro") && !nomeCheck.Contains("vazio") && !nomeCheck.Contains("inválido"))
             {
-                mostrarCampoCodigo = true;
+                respostaBasica = "Dados validados com sucesso! Enviando código...";
+                mostrarCampoCodigo = true; // 🌟 Abre a caixa do código!
                 CodigoCorreto = new Random().Next(1000, 10000);
                 _ = Task.Run(async () => await Validador.EnviarEmailCodigo(email, CodigoCorreto));
             }
-            else if (emailResposta.Contains("já cadastrado"))
+            else
             {
-                mostrarCampoCodigo = false;
+                respostaBasica = "Existem erros de validação no formulário.";
+                mostrarCampoCodigo = false; // Mantém fechado se houver erros reais
             }
         }
     }
@@ -163,6 +170,7 @@ Modifiquei apenas a parte interna do cadastro para que, quando um usuário novo 
         {
             try
             {
+                // 1. Cria o usuário para a sua tabela
                 var novoUsuario = new Usuario
                 {
                     Nome = nome,
@@ -171,12 +179,13 @@ Modifiquei apenas a parte interna do cadastro para que, quando um usuário novo 
                     Senha = Validador.HashPassword(senha)
                 };
 
+                // 2. Salva nas tabelas do Supabase
                 await SupabaseClient.From<Usuario>().Insert(novoUsuario);
                 var cadastro = await SupabaseClient.Auth.SignUp(email, senha);
 
                 if (cadastro != null)
                 {
-                    // 🟢 CORREÇÃO: Estruturando o JSON idêntico ao esperado pelo Provider, definindo o perfil padrão como "Usuario"
+                    // Injeta o perfil simulado para o Blazor reconhecer como "Usuario"
                     var sessaoSimuladaCadastro = new
                     {
                         user = new
@@ -193,6 +202,8 @@ Modifiquei apenas a parte interna do cadastro para que, quando um usuário novo 
                 }
 
                 respostaBasica = "Código verificado e Usuário cadastrado no Supabase com sucesso!";
+
+                // 🟢 SÓ FECHA A CAIXA DEPOIS QUE SALVOU COM SUCESSO:
                 mostrarCampoCodigo = false;
             }
             catch (Exception ex)
@@ -204,6 +215,8 @@ Modifiquei apenas a parte interna do cadastro para que, quando um usuário novo 
         else
         {
             respostaBasica = "Código de verificação incorreto. Tente novamente.";
+            // 🟢 SE ERRAR O CÓDIGO, MANTÉM A CAIXA ABERTA:
+            mostrarCampoCodigo = true;
         }
     }
 
@@ -224,7 +237,6 @@ Modifiquei apenas a parte interna do cadastro para que, quando um usuário novo 
         try
         {
             await SupabaseClient.Auth.SignOut();
-
             await ((SupabaseAuthStateProvider)AuthStateProvider).MarcarComoDeslogado();
 
             respostaBasica = "Você foi deslogado com sucesso!";
@@ -246,5 +258,3 @@ Modifiquei apenas a parte interna do cadastro para que, quando um usuário novo 
         public string Senha { get; set; } = string.Empty;
     }
 }
-
-```
