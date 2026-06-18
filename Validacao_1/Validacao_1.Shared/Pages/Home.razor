@@ -134,6 +134,10 @@
         }
         else
         {
+            // Pega os retornos do seu validador com segurança
+            emailResposta = resultado.Count > 0 ? resultado[0] : "";
+            senhaResposta = resultado.Count > 1 ? resultado[1] : "";
+            NomeResposta = resultado.Count > 2 ? resultado[2] : "";
             //
             // Pega os retornos do seu validador com segurança
             emailResposta = resultado.Count > 0 ? resultado[0] : "";
@@ -258,3 +262,5 @@
         public string Senha { get; set; } = string.Empty;
     }
 }
+}
+```
