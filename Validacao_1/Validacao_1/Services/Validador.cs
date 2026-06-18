@@ -95,11 +95,9 @@ namespace Validacao_1.Services
                 return "Erro ao validar email no banco de dados";
             }
         }
-
         public async Task EnviarEmailCodigo(string emailDoCliente, int codigo)
         {
-            var remetente = "niellealbrandao@gmail.com";
-            var suaSenhaDeApp = "xsmtpsib-45891388c92d8746f7ccdb48bca447068ae839a30566de4a43324cd8492a7212-kJTwynbxZ9kak2t1";
+
 
             var mensagem = new MailMessage();
             mensagem.From = new MailAddress(remetente, "Sistema de Cadastro");
@@ -111,11 +109,12 @@ namespace Validacao_1.Services
             using var smtpClient = new SmtpClient("smtp-relay.brevo.com")
             {
                 Port = 587,
-                Credentials = new NetworkCredential("aed811001@smtp-brevo.com", suaSenhaDeApp),
+                Credentials = new NetworkCredential("", suaSenhaDeApp),
                 EnableSsl = true,
             };
 
             await smtpClient.SendMailAsync(mensagem);
+        }
         }
 
         public string Senha(Pessoa pessoa)

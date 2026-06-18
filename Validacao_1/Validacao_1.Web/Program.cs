@@ -7,8 +7,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-string urlSupabase = "https://vdqzlwhwhzwkhigdffjk.supabase.co";
-string chaveSupabase = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcXpsd2h3aHp3a2hpZ2RmZmprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNzk3MzYsImV4cCI6MjA5Njg1NTczNn0.JVbFEu4_MPc4xfWbbTsW6QL-uTjn72Z6njUEzsAD_38";
+
 
 // 1. Registra o serviço de armazenamento (LocalStorage)
 builder.Services.AddStorage();
