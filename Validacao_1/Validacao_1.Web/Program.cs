@@ -1,13 +1,12 @@
-using Validacao_1.Shared.Services;
-using Validacao_1.Web.Components;
-using Validacao_1.Web.Services;
-using Supabase;
 using Blazor.Extensions.Storage;
 using Microsoft.AspNetCore.Components.Authorization;
+using Supabase;
+
+using Validacao_1.Shared.Services;
+using Validacao_1.Web.Components;
+using Validacao_1.Web.Services;           
 
 var builder = WebApplication.CreateBuilder(args);
-
-
 
 // 1. Registra o serviço de armazenamento (LocalStorage)
 builder.Services.AddStorage();
@@ -20,6 +19,10 @@ builder.Services.AddScoped<SupabaseAuthStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(provider =>
     provider.GetRequiredService<SupabaseAuthStateProvider>());
 
+// 4. Configuração SEGURA do Cliente Supabase vinda do appsettings
+string urlSupabase = builder.Configuration["Supabase:Url"] ?? string.Empty;
+string chaveSupabase = builder.Configuration["Supabase:Chave"] ?? string.Empty;
+
 var opcoes = new SupabaseOptions { AutoConnectRealtime = true };
 builder.Services.AddSingleton(provider => new Client(urlSupabase, chaveSupabase, opcoes));
 
@@ -27,9 +30,12 @@ builder.Services.AddSingleton(provider => new Client(urlSupabase, chaveSupabase,
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Add device-specific services used by the Validacao_1.Shared project
-builder.Services.AddSingleton<IFormFactor, FormFactor>();
-builder.Services.AddSingleton<IValidador, Validador>();
+// 5.  Alterado para AddScoped e o .NET gerencia a injeção do IConfiguration sozinho!
+builder.Services.AddScoped<IValidador, Validador>();
+
+builder.Services.AddScoped<Validacao_1.Shared.Services.CriptografiaServico>();
+
+builder.Services.AddScoped<Validacao_1.Shared.Services.EmailServico>();
 
 var app = builder.Build();
 
@@ -37,17 +43,15 @@ var app = builder.Build();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseHttpsRedirection();
-
 app.UseStaticFiles();
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
-    .AddAdditionalAssemblies(typeof(Validacao_1.Shared._Imports).Assembly);
+    .AddAdditionalAssemblies(typeof(Validacao_1.Shared.Pages.CadastroForm).Assembly);
 
 app.Run();

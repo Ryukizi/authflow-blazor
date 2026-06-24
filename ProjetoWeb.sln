@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Validacao_1", "Validacao_1\Validacao_1\Validacao_1.csproj", "{E1951D03-C3CB-4411-A69A-83B6955C524E}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Validacao_1.Shared", "Validacao_1\Validacao_1.Shared\Validacao_1.Shared.csproj", "{79069F66-2988-4C0B-AEE1-1B1B21FA870E}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Validacao_1.Web", "Validacao_1\Validacao_1.Web\Validacao_1.Web.csproj", "{D4C1ED3E-6C58-4944-A0BE-861482C951C1}"
@@ -15,10 +13,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{E1951D03-C3CB-4411-A69A-83B6955C524E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{E1951D03-C3CB-4411-A69A-83B6955C524E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{E1951D03-C3CB-4411-A69A-83B6955C524E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{E1951D03-C3CB-4411-A69A-83B6955C524E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{79069F66-2988-4C0B-AEE1-1B1B21FA870E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{79069F66-2988-4C0B-AEE1-1B1B21FA870E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{79069F66-2988-4C0B-AEE1-1B1B21FA870E}.Release|Any CPU.ActiveCfg = Release|Any CPU

@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Configuracoes Locais com Senhas (Nao subir para GitHub)
+appsettings.Development.json

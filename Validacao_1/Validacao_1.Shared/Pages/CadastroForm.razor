@@ -1,0 +1,250 @@
+﻿@page "/cadastro"
+@rendermode InteractiveServer
+@using Microsoft.Extensions.Configuration
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IValidador Validador
+@inject Client SupabaseClient
+@inject NavigationManager Navigation
+@inject CriptografiaServico Criptografia
+@inject EmailServico EmailServico
+@inject IConfiguration Config
+
+<div class="login-container">
+    <PageTitle>Cadastro</PageTitle>
+
+    <div class="container mt-4 glass-card p-4" style="max-width: 550px;">
+
+        <AuthorizeView>
+            <Authorized>
+                <div class="alert alert-success text-center" role="alert">
+                    🎉 <strong>Cadastro Realizado com sucesso!</strong>
+                    <div>Redirecionando para o painel principal...</div>
+                </div>
+            </Authorized>
+
+            <NotAuthorized>
+                <h2 class="text-center mb-4">Criar Nova Conta</h2>
+
+                @if (!string.IsNullOrEmpty(_respostaBasica))
+                {
+                    <div class="alert alert-primary text-center mt-3" role="alert">
+                        <strong>Validação:</strong>
+                        <div>@_respostaBasica</div>
+                        @if (!string.IsNullOrEmpty(_nomeResposta))
+                        {
+                            <div>@_nomeResposta</div>
+                        }
+                        @if (!string.IsNullOrEmpty(_emailResposta))
+                        {
+                            <div>@_emailResposta</div>
+                        }
+                        @if (!string.IsNullOrEmpty(_senhaResposta))
+                        {
+                            <div>@_senhaResposta</div>
+                        }
+                    </div>
+                }
+
+                @if (_mostrarCampoCodigo)
+                {
+                    <div class="alert alert-success mt-3 text-center bg-opacity-70" role="alert">
+                        <label class="form-label fw-bold text-success mb-2">Digite o código de verificação enviado para seu email:</label>
+                        <input type="text" class="form-control glass-input text-center fw-bold fs-5 mb-2" @bind="_codigoEnviado" placeholder="Código de verificação" />
+                        <button class="btn btn-glass w-100" @onclick="VerificarCodigo">Verificar Código</button>
+                    </div>
+                }
+
+                <div class="form-group mt-3">
+                    <label class="form-label fw-bold">Idade</label>
+                    <input type="number" pattern="[0-9]*" class="form-control glass-input" @bind="_idade"
+                           onkeypress="return event.key !== '.' && event.key !== ',';" placeholder="Digite sua idade" />
+                </div>
+
+                <div class="form-group mt-3">
+                    <label class="form-label fw-bold">Nome Completo</label>
+                    <input type="text" pattern="[A-Za-zÀ-ÿ\s]+" inputmode="text" class="form-control glass-input" @bind="_nome"
+                           oninput="this.value = this.value.replace(/[0-9]/g, '')" placeholder="Digite apenas letras"
+                           onkeypress="return event.key !== '.' && event.key !== ',';" />
+                </div>
+
+                <div class="form-group mt-3">
+                    <label class="form-label fw-bold">E-mail</label>
+                    <input type="text" class="form-control glass-input" @bind="_email" placeholder="Digite seu Email" />
+                </div>
+
+                <div class="form-group mt-3">
+                    <label class="form-label fw-bold">Senha</label>
+                    <input type="password" class="form-control glass-input" @bind="_senha" placeholder="Digite sua Senha" />
+                </div>
+
+                <button class="btn btn-glass mt-4 w-100" @onclick="async () => await OnClickPessoa(_idade, _nome, _email, _senha)">
+                    Cadastrar
+                </button>
+
+                <div class="d-flex justify-content-center mt-3" style="position: relative; z-index: 3;">
+                    <button type="button" class="btn btn-glass-secondary w-50 fw-bold" @onclick="Login">
+                        Voltar para o Login
+                    </button>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+
+    </div>
+</div>
+
+@code {
+    private string _respostaBasica = "";
+    private string _emailResposta = "";
+    private string _senhaResposta = "";
+    private string _nomeResposta = "";
+    private int _idade;
+    private string _nome = "";
+    private string _email = "";
+    private string _senha = "";
+    private bool _mostrarCampoCodigo = false;
+    private string _codigoEnviado = "";
+    private int _codigoCorreto;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var estadoAutenticacao = await AuthStateProvider.GetAuthenticationStateAsync();
+            var usuario = estadoAutenticacao.User;
+
+            if (usuario.Identity is not null && usuario.Identity.IsAuthenticated)
+            {
+                await Task.Delay(3000);
+                Navigation.NavigateTo("/");
+            }
+        }
+    }
+
+    public async Task getValidador(Pessoa pessoa)
+    {
+        try
+        {
+            _respostaBasica = "Processando validação...";
+            StateHasChanged();
+
+            var resultado = await Validador.EntradaDeDados(pessoa);
+
+            // Mapeia os erros apenas se a lista contiver dados de falha por campo
+            _emailResposta = resultado != null && resultado.Count > 0 ? resultado[0] : "";
+            _senhaResposta = resultado != null && resultado.Count > 1 ? resultado[1] : "";
+            _nomeResposta = resultado != null && resultado.Count > 2 ? resultado[2] : "";
+
+            // 🌟 JUNTOS E SEM REDUNDÂNCIA: Sucesso se a lista for vazia OU se passar no IsFormularioValido
+            if (resultado == null || resultado.Count == 0 || IsFormularioValido())
+            {
+                _respostaBasica = "Dados validados com sucesso! Enviando código...";
+                _mostrarCampoCodigo = true;
+                _codigoCorreto = new Random().Next(1000, 10000);
+
+                _ = Task.Run(async () => await EmailServico.EnviarEmailCodigo(
+                    _email,
+                    _codigoCorreto,
+                    Config["Smtp:Remetente"] ?? "niellealbrandao@gmail.com",
+                    Config["Smtp:Usuario"] ?? "aed811001@smtp-brevo.com",
+                    Config["Smtp:Senha"] ?? ""));
+            }
+            else
+            {
+                // Se o erro for global (ex: menor de idade), exibe a mensagem direta
+                _respostaBasica = resultado.Count == 1 ? resultado[0] : "Existem erros de validação no formulário.";
+                _mostrarCampoCodigo = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _respostaBasica = $"Erro na validação: {ex.Message}";
+            Console.WriteLine($"[ERRO]: {ex.ToString()}");
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private async Task VerificarCodigo()
+    {
+        if (_codigoEnviado == _codigoCorreto.ToString())
+        {
+            try
+            {
+                var novoUsuario = new Usuario
+                {
+                    Nome = _nome,
+                    Idade = _idade,
+                    Email = _email,
+                    Senha = Criptografia.HashPassword(_senha)
+                };
+
+                await SupabaseClient.From<Usuario>().Insert(novoUsuario);
+                var cadastro = await SupabaseClient.Auth.SignUp(_email, _senha);
+
+                if (cadastro != null)
+                {
+                    var sessaoSimuladaCadastro = new
+                    {
+                        user = new
+                        {
+                            email = _email,
+                            id = cadastro.User?.Id ?? "0",
+                            perfil = "Usuario"
+                        }
+                    };
+
+                    var sessionJson = System.Text.Json.JsonSerializer.Serialize<object>(sessaoSimuladaCadastro);
+                    await ((SupabaseAuthStateProvider)AuthStateProvider).MarcarComoLogado(sessionJson);
+                }
+
+                _respostaBasica = "Código verificado e Usuário cadastrado no Supabase com sucesso!";
+                _mostrarCampoCodigo = false;
+                StateHasChanged();
+
+                await Task.Delay(5000);
+                Navigation.NavigateTo("/", forceLoad: true);
+            }
+            catch (Exception ex)
+            {
+                _respostaBasica = $"Código correto, mas erro ao salvar no banco: {ex.Message}";
+                Console.WriteLine($"Erro no Insert: {ex.ToString()}");
+            }
+        }
+        else
+        {
+            _respostaBasica = "Código de verificação incorreto. Tente novamente.";
+            _mostrarCampoCodigo = true;
+        }
+    }
+
+    private bool IsFormularioValido()
+    {
+        string emailCheck = _emailResposta.ToLower();
+        string senhaCheck = _senhaResposta.ToLower();
+        string nomeCheck = _nomeResposta.ToLower();
+
+        return !(emailCheck.Contains("erro") || emailCheck.Contains("já cadastrado") || emailCheck.Contains("vazio") || emailCheck.Contains("inválido") ||
+                 senhaCheck.Contains("erro") || senhaCheck.Contains("fraca") || senhaCheck.Contains("curta") || senhaCheck.Contains("inválida") ||
+                 nomeCheck.Contains("erro") || nomeCheck.Contains("vazio") || nomeCheck.Contains("inválido"));
+    }
+
+    private async Task OnClickPessoa(int idade, string nome, string email, string senha)
+    {
+        var _pessoa = new Pessoa
+        {
+            Nome = nome,
+            Idade = idade,
+            Email = email,
+            Senha = senha
+        };
+        await getValidador(_pessoa);
+    }
+
+    private async Task Login()
+    {
+        Navigation.NavigateTo("/login", forceLoad: true);
+        await Task.CompletedTask;
+    }
+}

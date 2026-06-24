@@ -1,0 +1,75 @@
+﻿@page "/"
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IValidador Validador
+@inject Client SupabaseClient
+
+<div class="container mt-5" style="max-width: 600px;">
+    <div class="card bg-white bg-opacity-10 text-white border-0 shadow-lg p-4 mb-4 rounded-2" style="backdrop-filter: blur(5px);">
+
+        <AuthorizeView>
+            <Authorized>
+                <div class="alert alert-success border-0 shadow-sm text-center mb-4" role="alert">
+                    <h4 class="alert-heading fw-bold">Olá! Você está logado no sistema. 🎉</h4>
+                    <p class="mb-0 text-secondary">Bem-vindo de volta ao painel principal!</p>
+                </div>
+
+                <h4 class="text-center fw-bold mb-3 text-white">Área de Teste de Perfis:</h4>
+
+                <AuthorizeView Roles="Admin" Context="adminContext">
+                    <div class="card border-0 bg-danger bg-opacity-75 text-white mb-3 shadow-sm rounded-3">
+                        <div class="card-header bg-danger bg-opacity-20 fw-bold border-0">👑 Visão do Administrador</div>
+                        <div class="card-body">
+                            <p class="card-text mb-0">Se você está vendo esta caixa, seu perfil é <strong>Admin</strong> e o Blazor leu com sucesso!</p>
+                        </div>
+                    </div>
+                </AuthorizeView>
+
+                <AuthorizeView Roles="Usuario" Context="userContext">
+                    <div class="card border-0 bg-primary bg-opacity-75 text-white mb-3 shadow-sm rounded-3">
+                        <div class="card-header bg-primary bg-opacity-50 fw-bold border-0">👤 Visão do Usuário Comum</div>
+                        <div class="card-body">
+                            <p class="card-text mb-0">Se você está vendo esta caixa, seu perfil é <strong>Usuario</strong> comum!</p>
+                        </div>
+                    </div>
+                </AuthorizeView>
+
+                <button class="btn btn-danger w-100 fw-bold py-2 shadow-sm mt-3 rounded-3" @onclick="ExecutarLogout">
+                    Sair do Sistema
+                </button>
+            </Authorized>
+
+            <NotAuthorized>
+                <div class="alert alert-warning border-0 shadow-sm text-center mb-3" role="alert">
+                    <h4 class="alert-heading fw-bold">Você não está logado. 🛑</h4>
+                    <p class="mb-0 text-secondary">Por favor, autentique-se para acessar as funções.</p>
+                </div>
+
+                <div class="d-flex justify-content-center gap-3 mt-3">
+                    <a href="/login" class="btn btn-outline-light fw-bold px-4 shadow-sm rounded-3">Ir para o Login</a>
+                    <a href="/cadastro" class="btn btn-outline-light fw-bold px-4 shadow-sm rounded-3">Criar uma Conta</a>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+
+    </div>
+</div>
+
+@code {
+    private string _respostaBasica = "";
+
+    private async Task ExecutarLogout()
+    {
+        try
+        {
+            // 🚀 Apenas uma linha chama o serviço centralizado!
+            await ((SupabaseAuthStateProvider)AuthStateProvider).FazerLogout();
+
+            Navigation.NavigateTo("/login", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            _respostaBasica = $"Erro ao deslogar: {ex.Message}";
+        }
+    }
+}
