@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
+using Supabase;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -9,13 +10,15 @@ namespace Validacao_1.Web.Services
     public class SupabaseAuthStateProvider : AuthenticationStateProvider
     {
         private readonly IJSRuntime _jsRuntime;
+        private readonly Supabase.Client _supabaseClient;
         private const string TokenKey = "supabase_session";
 
         private AuthenticationState _currentAuthenticationState;
 
-        public SupabaseAuthStateProvider(IJSRuntime jsRuntime)
+        public SupabaseAuthStateProvider(IJSRuntime jsRuntime, Client supabaseClient)
         {
             _jsRuntime = jsRuntime;
+            _supabaseClient = supabaseClient;
             _currentAuthenticationState = new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
         }
 
@@ -121,6 +124,15 @@ namespace Validacao_1.Web.Services
             _currentAuthenticationState = new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
 
             NotifyAuthenticationStateChanged(Task.FromResult(_currentAuthenticationState));
+        }
+
+        public async Task FazerLogout()
+        {
+            // 1. Desloga do Supabase
+            await _supabaseClient.Auth.SignOut();
+
+            // 2. Limpa o estado local do Blazor (o método que você já tem)
+            await MarcarComoDeslogado();
         }
     }
 }

@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection.Metadata;
-using System.Text;
 using System.Threading.Tasks;
-using static Validacao_1.Shared.Pages.Home;
+using Validacao_1.Shared.Models;
 
 namespace Validacao_1.Shared.Services
 {
@@ -19,13 +16,5 @@ namespace Validacao_1.Shared.Services
         public Task<string> Email(Pessoa pessoa);
 
         public string Senha(Pessoa pessoa);
-
-        public string HashPassword(string senha);
-
-        public bool VerifyPassword(string password, string storedhash);
-
-        public Task EnviarEmailCodigo(string emailDoClient, int codigo);
-
-        public Task FazerLogout();
     }
 }

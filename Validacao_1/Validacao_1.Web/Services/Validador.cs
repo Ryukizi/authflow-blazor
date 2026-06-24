@@ -1,68 +1,67 @@
-﻿using Microsoft.AspNetCore.Mvc.RazorPages;
-using Supabase;
-using Supabase.Interfaces;
+﻿using Supabase;
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
-using Validacao_1.Shared.Pages;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using Microsoft.Extensions.Configuration; // Adicionado para ler o appsettings
 using Validacao_1.Shared.Services;
-using static Validacao_1.Shared.Pages.Home;
+using Validacao_1.Shared.Models;
 
 namespace Validacao_1.Web.Services
 {
     public class Validador : IValidador
     {
-        // 1. Mantemos o nome correto do cliente injetado
         private readonly Client _supabaseClient;
+        private readonly IConfiguration _config; // Injeção de configuração
 
-        public Validador(Client supabaseClient)
+        public Validador(Client supabaseClient, IConfiguration config)
         {
             _supabaseClient = supabaseClient;
+            _config = config;
         }
 
         public async Task<List<string>> EntradaDeDados(Pessoa pessoa)
         {
-            var mensagem = new List<string>();
+            var erros = new List<string>();
 
-            if (Idade(pessoa))
+            if (!Idade(pessoa))
             {
-                // Como Email agora retorna a resposta, adicionamos o retorno dele na lista
-                mensagem.Add(await Email(pessoa));
-                mensagem.Add(Senha(pessoa));
-                mensagem.Add(Nome(pessoa));
+                erros.Add("Pessoa é menor de idade, não é possível realizar o cadastro.");
+                return erros; // Retorna imediatamente pois menor de idade não pode se cadastrar
             }
-            else
-            {
-                mensagem.Add("Pessoa é menor de idade, não é possível validar email e senha.");
-            }
-            return mensagem;
+
+            //  Validações adicionando apenas se houver erro
+            var erroNome = Nome(pessoa);
+            if (!string.IsNullOrEmpty(erroNome)) erros.Add(erroNome);
+
+            var erroEmail = await Email(pessoa);
+            if (!string.IsNullOrEmpty(erroEmail)) erros.Add(erroEmail);
+
+            var erroSenha = Senha(pessoa);
+            if (!string.IsNullOrEmpty(erroSenha)) erros.Add(erroSenha);
+
+            return erros;
         }
 
         public bool Idade(Pessoa pessoa)
         {
-            bool maiorIdade = false;
-            if (pessoa.Idade >= 18)
-            {
-                maiorIdade = true;
-            }
-            return maiorIdade;
+            return pessoa.Idade >= 18;
         }
 
         public string Nome(Pessoa pessoa)
         {
-            bool ValidName = !string.IsNullOrWhiteSpace(pessoa.Nome) && pessoa.Nome.All(c => char.IsLetter(c) || c == ' ');
-
+            bool validName = !string.IsNullOrWhiteSpace(pessoa.Nome) && pessoa.Nome.All(c => char.IsLetter(c) || c == ' ');
             bool temEspacoDuplicado = Regex.IsMatch(pessoa.Nome ?? string.Empty, @"\s{2,}");
-            if (ValidName && !temEspacoDuplicado)
+
+            if (validName && !temEspacoDuplicado)
             {
-                return "Nome valído";
+                return null;
             }
-            else
-            {
-                return "Nome invalído";
-            }
+            return "Nome inválido";
         }
 
         public async Task<string> Email(Pessoa pessoa)
@@ -71,7 +70,7 @@ namespace Validacao_1.Web.Services
 
             if (!emailValido)
             {
-                return "Formatado de email inválido";
+                return "Formato de e-mail inválido";
             }
             try
             {
@@ -82,37 +81,16 @@ namespace Validacao_1.Web.Services
 
                 if (resultado.Models.Any())
                 {
-                    return "Email já cadastrado no banco de dados";
+                    return "E-mail já cadastrado no banco de dados";
                 }
 
-                return "Email válido";
+                return null;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"=== ERRO COMPLETO DO BANCO: {ex.ToString()} ===");
-                return "Erro ao validar email no banco de dados";
+                Console.WriteLine($"=== ERRO COMPLETO DO BANCO: {ex} ===");
+                return "Erro ao validar e-mail no banco de dados";
             }
-        }
-
-        public async Task EnviarEmailCodigo(string emailDoCliente, int codigo)
-        {
-
-
-            var mensagem = new MailMessage();
-            mensagem.From = new MailAddress(remetente, "Sistema de Cadastro");
-            mensagem.To.Add(new MailAddress(emailDoCliente));
-            mensagem.Subject = "Código de Verificação";
-            mensagem.Body = $"Seu código de verificação é: {codigo}";
-            mensagem.IsBodyHtml = false;
-
-            using var smtpClient = new SmtpClient("smtp-relay.brevo.com")
-            {
-                Port = 587,                        
-                Credentials = new NetworkCredential("", suaSenhaDeApp),
-                EnableSsl = true,
-            };
-
-            await smtpClient.SendMailAsync(mensagem);
         }
 
         public string Senha(Pessoa pessoa)
@@ -121,54 +99,9 @@ namespace Validacao_1.Web.Services
 
             if (senhaValida)
             {
-                return "senha valída";
+                return null;
             }
-            return "senha inválida";
-        }
-
-        public string HashPassword(string password)
-        {
-            const int iterations = 100_000;
-            const int saltSize = 32;
-            const int keySize = 32;
-
-            using var rng = RandomNumberGenerator.Create();
-            var salt = new byte[saltSize];
-            rng.GetBytes(salt);
-
-            using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations, HashAlgorithmName.SHA256);
-            var key = pbkdf2.GetBytes(keySize);
-
-            string saltBase64 = Convert.ToBase64String(salt);
-            string KeyBase64 = Convert.ToBase64String(key);
-
-            return $"{iterations}.{saltBase64}.{KeyBase64}";
-        }
-
-        public bool VerifyPassword(string password, string storehash)
-        {
-            var parts = storehash.Split('.');
-            if(parts.Length != 3)
-            {
-                return false;
-            }
-
-            if(!int.TryParse(parts[0], out int iterations))
-            {
-                return false;
-            }
-
-            var salt = Convert.FromBase64String(parts[1]);
-            var storedKey = Convert.FromBase64String(parts[2]);
-
-            using var pbkdf2 = new Rfc2898DeriveBytes(password, salt, iterations, HashAlgorithmName.SHA256);
-            var enteredKey = pbkdf2.GetBytes(storedKey.Length);
-
-            return CryptographicOperations.FixedTimeEquals(enteredKey, storedKey);
-        }
-        public async Task FazerLogout()
-        {
-            await _supabaseClient.Auth.SignOut();
+            return "Senha inválida";
         }
     }
 }

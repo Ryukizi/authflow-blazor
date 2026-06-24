@@ -1,110 +1,141 @@
 ﻿@page "/login"
-@using System.ComponentModel.DataAnnotations
-@using Validacao_1.Shared.Services
-@using System.Text.RegularExpressions
-@using Supabase
-@using Microsoft.AspNetCore.Components.Authorization
-@using Validacao_1.Web.Services
 @inject IValidador Validador
 @inject Client SupabaseClient
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
+@inject CriptografiaServico Criptografia
 
-<PageTitle>Login</PageTitle>
+<div class="login-container">
+    <PageTitle>Login</PageTitle>
 
-<div class="container mt-5" style="max-width: 500px;">
-    <AuthorizeView>
-        <Authorized>
-            <div class="alert alert-success" role="alert">
-                🎉 <strong>Você já está conectado!</strong>
-                <div>Bem-vindo de volta! Redirecionando...</div>
-            </div>
-        </Authorized>
-        <NotAuthorized>
-            <h1>Entrar no Sistema</h1>
-
-            @if (!string.IsNullOrEmpty(mensagemResultado))
-            {
-                <div class="alert @(loginSucesso ? "alert-success" : "alert-danger") mt-3" role="alert">
-                    @mensagemResultado
+    <div class="container mt-5 glass-card p-4" style="max-width: 500px;">
+        <AuthorizeView>
+            <Authorized>
+                <div class="alert alert-success text-center" role="alert">
+                    🎉 <strong>Você já está conectado!</strong>
+                    <div>Bem-vindo de volta! Redirecionando...</div>
                 </div>
-            }
+            </Authorized>
+            <NotAuthorized>
+                <h2 class="text-center mb-4">Entrar no Sistema</h2>
 
-            <div class="form-group mt-3">
-                <label class="form-label fw-bold">Digite seu Email</label>
-                <input type="text" class="form-control" @bind="emailInput" placeholder="Digite seu Email" />
-            </div>
+                @if (!string.IsNullOrEmpty(_mensagemResultado))
+                {
+                    <div class="alert @(_loginSucesso ? "alert-success" : "alert-danger") mt-3" role="alert">
+                        @_mensagemResultado
+                    </div>
+                }
 
-            <div class="form-group mt-3">
-                <label class="form-label fw-bold">Digite sua Senha</label>
-                <input type="password" class="form-control" @bind="passwordInput" placeholder="Digite sua Senha" />
-            </div>
+                <div class="form-group mt-3">
+                    <label class="form-label fw-bold">Digite seu Email</label>
+                    <input type="text" class="form-control glass-input" @bind="_emailInput" placeholder="Digite seu Email" />
+                </div>
 
-            <button class="btn btn-primary mt-4 w-100" @onclick="EfetuarLogin">Entrar</button>
-        </NotAuthorized>
-    </AuthorizeView>
+                <div class="form-group mt-3">
+                    <label class="form-label fw-bold">Digite sua Senha</label>
+                    <input type="password" class="form-control glass-input" @bind="_passwordInput" placeholder="Digite sua Senha" />
+                </div>
+
+                <button class="btn btn-glass mt-4 w-100" @onclick="Execute">Entrar</button>
+
+                <div class="text-center mt-3" style="position: relative; z-index: 3;">
+                    <button type="button" class="btn-glass-secondary w-50 fw-bold" style="color: #6a1b9a; border-color: #6a1b9a;" @onclick="IrParaCadastro">
+                        Cadastrar-se
+                    </button>
+                </div>
+            </NotAuthorized>
+        </AuthorizeView>
+    </div>
 </div>
 
 @code {
-    private string emailInput = "";
-    private string passwordInput = "";
-    private string mensagemResultado = "";
-    private bool loginSucesso = false;
+    private string _emailInput = "";
+    private string _passwordInput = "";
+    private string _mensagemResultado = "";
+    private bool _loginSucesso = false;
 
-    private async Task EfetuarLogin()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (string.IsNullOrWhiteSpace(emailInput) || string.IsNullOrWhiteSpace(passwordInput))
+        if (firstRender)
         {
-            mensagemResultado = "Por favor, preencha todos os campos.";
-            loginSucesso = false;
+            var estadoAutenticacao = await AuthStateProvider.GetAuthenticationStateAsync();
+            var usuario = estadoAutenticacao.User;
+
+            // Se o usuário já estiver logado, espera 3 segundos e redireciona
+            if (usuario.Identity is not null && usuario.Identity.IsAuthenticated)
+            {
+                await Task.Delay(3000); // Tempo de espera em milissegundos (3 segundos)
+                Navigation.NavigateTo("/");
+            }
+        }
+    }
+
+    private async Task Execute()
+    {
+        if (!ValidadorCamposEntrada())
+        {
+            _mensagemResultado = "Por favor, preencha todos os campos.";
+            _loginSucesso = false;
             return;
         }
 
         try
         {
-            // 1. Voltamos a buscar na SUA tabela igual ao seu código antigo
             var resposta = await SupabaseClient
                 .From<Usuario>()
-                .Where(x => x.Email == emailInput)
+                .Where(x => x.Email == _emailInput)
                 .Get();
 
             var usuario = resposta.Models.FirstOrDefault();
 
-            // 2. Usamos a SUA validação de hash que funcionava perfeitamente
-            if (usuario != null && Validador.VerifyPassword(passwordInput, usuario.Senha))
+            if (usuario != null && Criptografia.VerifyPassword(_passwordInput, usuario.Senha))
             {
-                loginSucesso = true;
-                mensagemResultado = $"Bem-vindo, {usuario.Nome}!";
+                _loginSucesso = true;
+                _mensagemResultado = $"Bem-vindo, {usuario.Nome}!";
 
-                // 3. Criamos um JSON simulando a sessão para o seu Provider aceitar
-                // 🟢 ALTERAÇÃO AQUI: Incluído o campo "perfil" puxando da propriedade do seu modelo
-                var sessaoSimulada = new
-                {
-                    user = new
-                    {
-                        email = usuario.Email,
-                        id = usuario.Id,
-                        perfil = usuario.Perfil // 👈 Mude para usuario.Cargo ou usuario.Role se no banco o nome for diferente
-                    }
-                };
-                var sessionJson = System.Text.Json.JsonSerializer.Serialize<object>(sessaoSimulada);
-
-                // 4. Avisa o Blazor que está logado
-                await ((SupabaseAuthStateProvider)AuthStateProvider).MarcarComoLogado(sessionJson);
+                await RealizarLoginSessao(usuario);
 
                 await Task.Delay(2000);
                 Navigation.NavigateTo("/");
             }
             else
             {
-                loginSucesso = false;
-                mensagemResultado = "Usuário ou senha incorretos.";
+                _loginSucesso = false;
+                _mensagemResultado = "Usuário ou senha incorretos.";
             }
         }
         catch (Exception ex)
         {
-            loginSucesso = false;
-            mensagemResultado = $"Erro ao tentar realizar login: {ex.Message}";
+            _loginSucesso = false;
+            _mensagemResultado = $"Erro ao tentar realizar login: {ex.Message}";
         }
+    }
+
+    private bool ValidadorCamposEntrada()
+    {
+        return !string.IsNullOrWhiteSpace(_emailInput) && !string.IsNullOrWhiteSpace(_passwordInput);
+    }
+
+    private async Task RealizarLoginSessao(Usuario usuario)
+    {
+        var sessaoSimulada = new
+        {
+            user = new
+            {
+                email = usuario.Email,
+                id = usuario.Id,
+                perfil = usuario.Perfil
+            }
+        };
+
+        var sessionJson = System.Text.Json.JsonSerializer.Serialize<object>(sessaoSimulada);
+
+        await ((SupabaseAuthStateProvider)AuthStateProvider).MarcarComoLogado(sessionJson);
+    }
+
+    private void IrParaCadastro()
+    {
+
+        Navigation.NavigateTo("/cadastro");
     }
 }
